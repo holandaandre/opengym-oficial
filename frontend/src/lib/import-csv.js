@@ -305,7 +305,14 @@ const effortNum = (raw, zeroMeansRated) => {
 }
 const LB_TO_KG = 0.45359237
 const p2 = n => String(n).padStart(2, '0')
-const MON = { jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6, jul: 7, aug: 8, sep: 9, oct: 10, nov: 11, dec: 12 }
+const MON = {
+  jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6, jul: 7, aug: 8, sep: 9, oct: 10, nov: 11, dec: 12,
+  // A phone set to another language exports the month as a word in that language.
+  // pt: jan fev mar abr mai jun jul ago set out nov dez · es: ene abr ago dic · fr: avr mai aou dec
+  fev: 2, abr: 4, mai: 5, ago: 8, set: 9, out: 10, dez: 12, ene: 1, dic: 12, avr: 4, aou: 8,
+}
+/** lowercase and strip accents, so "fév"/"març" reach the table above */
+const deacc = s => String(s).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
 
 /** "2020-12-30 18:51:52" · "2024-03-07" · "2024/03/07" · "2024.03.07" · "22 Dec 2025, 08:00" · "07/03/2024" -> { d, t } */
 export function parseWhen(s) {
@@ -314,6 +321,11 @@ export function parseWhen(s) {
   if (m) return { d: `${m[1]}-${p2(m[2])}-${p2(m[3])}`, t: hm(m[4], m[5]) }
   m = v.match(/^(\d{1,2})\s+([A-Za-z]{3})[a-z]*\.?\s+(\d{4})(?:,?\s+(\d{1,2}):(\d{2}))?/)
   if (m && MON[m[2].toLowerCase()]) return { d: `${m[3]}-${p2(MON[m[2].toLowerCase()])}-${p2(m[1])}`, t: hm(m[4], m[5]) }
+  // "9 de set. de 2026, 08:09" — a Hevy export from a phone in pt/es writes the date this way
+  m = v.match(/^(\d{1,2})\s+de\s+([A-Za-zÀ-ÿ]{3,})\.?\s+de\s+(\d{4})(?:,?\s+(\d{1,2}):(\d{2}))?/)
+  if (m && MON[deacc(m[2]).slice(0, 3)]) {
+    return { d: `${m[3]}-${p2(MON[deacc(m[2]).slice(0, 3)])}-${p2(m[1])}`, t: hm(m[4], m[5]) }
+  }
   m = v.match(/^([A-Za-z]{3})[a-z]*\.?\s+(\d{1,2}),?\s+(\d{4})(?:,?\s+(\d{1,2}):(\d{2}))?/)
   if (m && MON[m[1].toLowerCase()]) return { d: `${m[3]}-${p2(MON[m[1].toLowerCase()])}-${p2(m[2])}`, t: hm(m[4], m[5]) }
   // Day-first when ambiguous: FitNotes/Strong/Hevy all write unambiguous dates, so a

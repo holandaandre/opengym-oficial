@@ -51,3 +51,11 @@ Design a complete plan from `coachProfile` (their intake answers) and, if presen
 - `prog` on a routine is its default; on an exercise it overrides. `inc` is the load step in `meta.unit`; `repsMin` only matters for `double`.
 - `sg`: give two exercises the same short string to superset them. They must be adjacent in the list.
 - `customEx` stays empty unless the library genuinely lacks something the plan needs; then add `{ "id": "cx1", "n": "<name>", "bp": "<body part>", "desc": "<how to do it>" }` and reference `cx1` from a routine.
+
+## Doctrine constraints
+
+- Shape the week to `daysPerWeek`: 2 → full body, patterns only, no isolation; 3 → full body, or upper/lower alternating; 4 → upper/lower; 5–6 → push/pull/legs or a specialisation block.
+- Cover the movement patterns before any isolation work, and keep every prescription inside the rep, effort and rest ranges in "Coaching doctrine".
+- Pick the simplest progression that still works: `linear` while they can add load session to session, `double` inside a rep range once they cannot. Reserve `greyskull` for someone whose top set can honestly be taken near failure.
+- For a lifter aged 40 or over, bias toward shorter sessions kept frequent, RIR 2–3 rather than failure, smaller `inc` steps, and planned warm-up ramps on the heavy compounds.
+- A `why` may name the principle behind the prescription — a rep range, a weekly set target, a pattern being uncovered. It may never name a study, a paper or an author.
