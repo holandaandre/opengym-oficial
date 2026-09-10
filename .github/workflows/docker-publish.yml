@@ -75,7 +75,9 @@ jobs:
           context: ${{ matrix.context }}
           file: ${{ matrix.file }}
           target: ${{ matrix.target }}
-          platforms: linux/amd64,linux/arm64
+          # So amd64: a VPS que roda esta instancia e' x86_64, e o npm ci do target coach
+          # morre com SIGILL (exit 132) sob emulacao QEMU do arm64.
+          platforms: linux/amd64
           build-args: |
             VERSION=${{ steps.version_meta.outputs.VERSION }}
             VCS_REF=${{ steps.version_meta.outputs.VCS_REF }}
