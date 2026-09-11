@@ -23,7 +23,7 @@ jobs:
         include:
           # target coach: a imagem padrao nao traz runtime de IA, e esta instancia usa o AI Coach.
           - image: api
-            context: ./api
+            context: .
             file: ./api/Dockerfile
             target: coach
           - image: web

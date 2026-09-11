@@ -16,6 +16,7 @@ import * as coachJobs from './coach/jobs.js';
 import { coachRoutes } from './coach/routes.js';
 import { startCadence } from './coach/cadence.js';
 import { startWarmup } from './coach/warmup.js';
+import { hevyRoutes } from './hevy/webhook.js';
 import { dayReminderPush, restTimerPush, testPush } from './push-messages.js';
 import { verifyError } from './verify-error.js';
 
@@ -976,7 +977,13 @@ const routes = {
   // Routes live in coach/routes.js and are handed the helpers above rather than importing
   // them: they are closures over db and SECRET, and passing them in keeps that module free of
   // a cycle. Every one of them is inert while the feature is unconfigured.
-  ...coachRoutes({ json, readBody, readSession, requireAdmin })
+  ...coachRoutes({ json, readBody, readSession, requireAdmin }),
+
+  /* ---------- Hevy webhook ---------- */
+  // Same shape as the Coach routes: a closure over the helpers, and absent entirely unless
+  // HEVY_WEBHOOK_SECRET and HEVY_API_KEY are both set. It authenticates on its own shared
+  // secret rather than a session, because the caller is Hevy, not a browser.
+  ...hevyRoutes({ json, readBody, users: () => db.users, stateFile, atomicWrite })
 };
 
 /* ---------- Coach: boot recovery, notifications, scheduled reviews ---------- */

@@ -109,13 +109,13 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - run: docker build --target default -t opengym-api:default ./api
-      - run: docker build --target coach   -t opengym-api:coach   ./api
+      - run: docker build --target default -t opengym-api:default -f api/Dockerfile .
+      - run: docker build --target coach   -t opengym-api:coach   -f api/Dockerfile .
       # No --target, exactly like docker-publish.yml. That workflow names no stage, so what it
       # ships is whatever Dockerfile stage happens to be last -- and that untargeted artifact,
       # not opengym-api:default above, is the image every self-hoster pulls as :latest. Build it
       # the same way here so the assertion below is about the thing we actually publish.
-      - run: docker build -t opengym-api:published ./api
+      - run: docker build -t opengym-api:published -f api/Dockerfile .
 
       - name: the image published as :latest has no AI runtime either
         run: |
