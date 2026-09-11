@@ -28,14 +28,19 @@ const API_KEY = process.env.HEVY_WEBHOOK_API_KEY || '';
 const FIXED_UID = process.env.HEVY_WEBHOOK_UID || '';
 
 /** Constant-time compare that does not leak the secret's length through an early return. */
+const sha = v => crypto.createHash('sha256').update(String(v || '')).digest();
+const SECRET_HASH = SECRET ? sha(SECRET) : null;
 function secretMatches(given) {
-  const a = crypto.createHash('sha256').update(String(given || '')).digest();
-  const b = crypto.createHash('sha256').update(SECRET).digest();
-  return crypto.timingSafeEqual(a, b);
+  return !!SECRET_HASH && crypto.timingSafeEqual(sha(given), SECRET_HASH);
 }
 
 async function hevyGet(path) {
-  const res = await fetch(`${HEVY_API}${path}`, { headers: { 'api-key': API_KEY } });
+  // Without a deadline a stalled Hevy hangs this ingest forever: the 200 has already gone out,
+  // Hevy will not retry, and the workout is simply lost with the request still pending.
+  const res = await fetch(`${HEVY_API}${path}`, {
+    headers: { 'api-key': API_KEY },
+    signal: AbortSignal.timeout(20000),
+  });
   if (!res.ok) throw new Error(`Hevy ${res.status} on ${path}: ${(await res.text()).slice(0, 200)}`);
   return res.json();
 }
@@ -106,32 +111,37 @@ export async function ingest({ workoutId, users, stateFile, atomicWrite }) {
   const parsed = parseHevyWorkouts([workout], await templatesFor(workout));
   if (!parsed.workouts.length) throw new Error(`nothing importable in workout ${workoutId}`);
 
-  let S;
-  try { S = JSON.parse(fs.readFileSync(stateFile(uid), 'utf8')); }
-  catch { throw new Error(`no state file for profile ${uid} — open the app once before wiring the webhook`); }
-  S.workouts = S.workouts || [];
-  S.customEx = S.customEx || [];
-  S.exWeights = S.exWeights || {};
-  S.bodyweight = S.bodyweight || [];
+  /* Two deliveries that overlap do not race, and the reason is load-bearing: everything from the
+     read to the write below is synchronous, so Node runs it to completion without yielding. Swap
+     any of it for fs.promises and that guarantee is gone — a lost workout, silently. */
+  {
+    let S;
+    try { S = JSON.parse(fs.readFileSync(stateFile(uid), 'utf8')); }
+    catch { throw new Error(`no state file for profile ${uid} — open the app once before wiring the webhook`); }
+    S.workouts = S.workouts || [];
+    S.customEx = S.customEx || [];
+    S.exWeights = S.exWeights || {};
+    S.bodyweight = S.bodyweight || [];
 
-  reuseCustoms(S, parsed);
+    reuseCustoms(S, parsed);
 
-  // mergeImport skips a day already logged, which is what makes a repeated delivery harmless.
-  const { added } = mergeImport(S, { kind: 'workouts', workouts: parsed.workouts, customEx: parsed.customEx });
-  if (!added) return { uid, added: 0, queued: false };
+    // mergeImport skips a day already logged, which is what makes a repeated delivery harmless.
+    const { added } = mergeImport(S, { kind: 'workouts', workouts: parsed.workouts, customEx: parsed.customEx });
+    if (!added) return { uid, added: 0, queued: false };
 
-  S._ts = Date.now();
-  atomicWrite(stateFile(uid), JSON.stringify(S));
+    S._ts = Date.now();
+    atomicWrite(stateFile(uid), JSON.stringify(S));
 
-  // The workout is already saved by here. A Coach that is off, busy or over its cap is an
-  // ordinary outcome and must not read as a failed import — the log has to say which half worked.
-  const local = parsed.workouts[parsed.workouts.length - 1];
-  try {
-    jobs.enqueue(uid, { kind: 'debrief', workoutId: local.id });
-    return { uid, added, queued: true, workoutId: local.id, day: local.d };
-  } catch (e) {
-    if (!(e instanceof jobs.CoachError)) throw e;
-    return { uid, added, queued: false, why: e.message, workoutId: local.id, day: local.d };
+    // The workout is already saved by here. A Coach that is off, busy or over its cap is an
+    // ordinary outcome and must not read as a failed import — the log has to say which half worked.
+    const local = parsed.workouts[parsed.workouts.length - 1];
+    try {
+      jobs.enqueue(uid, { kind: 'debrief', workoutId: local.id });
+      return { uid, added, queued: true, workoutId: local.id, day: local.d };
+    } catch (e) {
+      if (!(e instanceof jobs.CoachError)) throw e;
+      return { uid, added, queued: false, why: e.message, workoutId: local.id, day: local.d };
+    }
   }
 }
 
@@ -141,7 +151,10 @@ export function hevyRoutes({ json, readBody, users, stateFile, atomicWrite }) {
     'POST /api/hevy/webhook': async (req, res) => {
       if (!secretMatches(req.headers.authorization)) return json(res, 401, { error: 'unauthorized' });
       const body = await readBody(req);
-      const workoutId = body?.workoutId ? String(body.workoutId).slice(0, 64) : null;
+      const raw = body?.workoutId;
+      const workoutId = (typeof raw === 'string' || typeof raw === 'number') && String(raw).trim()
+        ? String(raw).trim().slice(0, 64)
+        : null;
       if (!workoutId) return json(res, 400, { error: 'workoutId required' });
 
       json(res, 200, { ok: true });        // answered first: Hevy gives up after 5s
