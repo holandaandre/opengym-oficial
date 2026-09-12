@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useStore } from './store/useStore.js'
 import { useUI } from './store/useUI.js'
-import { EXDB, EXIDX, BODYPARTS, isCardio, isBodyweightEq, allExercises, equipmentOf, smOf, matchExercise, exOr } from './lib/exercises.js'
+import { EXDB, EXIDX, BODYPARTS, isCardio, isBodyweightEq, allExercises, equipmentOf, smOf, matchExercise, exOr, suggestedSwaps } from './lib/exercises.js'
 import { activeProfile, exAvailable, ALL_EQUIPMENT, newProfile } from './lib/equipment.js'
 import { fmtDate, fmtNum, fmtVol, fmtDur, durPart, todayISO, isoOf, uid, exCount, DAYN, DAYS, weekOrder, weekStartOf, weekDayOffset, MONTHS_LONG, ACCENTS } from './lib/format.js'
 import { lastEntryFor, bestWeightFor, bestWeightForEntry, buildSets, effectiveRoutineIds, workoutVolume, setsDone, setsDoneActive, setUnitsTotal, lastBW, supersetUnits, unitOf, setLabel, defaultConfig, cleanupSg, modeOf, effortOf, EFFORT, capEffort, stepEffort, isBw, isPerSide, sideReps, workSetsDone, applyIntensifierPlan, MAX_PLANNED_WARMUPS, NOTE_MAX } from './lib/history.js'
@@ -852,7 +852,7 @@ function usageMap(st) {
   st.workouts.forEach(w => w.entries.forEach(e => { u[e.id] = (u[e.id] || 0) + 1 }))
   return u
 }
-function ExercisePicker({ onPick, close }) {
+function ExercisePicker({ onPick, close, swapFor = null }) {
   const st = useStore(s => s.S)
   const usage = usageMap(st)
   const [q, setQ] = useState('')
@@ -887,8 +887,14 @@ function ExercisePicker({ onPick, close }) {
     <MuscleExplorer onPick={onPick} />
   </>
 
+  // Suggestions answer "what else hits this?", so they only make sense while the list is still
+  // the whole library: once you search or filter, you have said what you are looking for.
+  const suggestions = swapFor && !q && !bp && !eqOn
+    ? suggestedSwaps(st, swapFor.id, { available: e => !profile || exAvailable(st, e) })
+    : []
+
   return <>
-    <div className="row between" style={{ marginBottom: 10 }}><h3>{t('Add exercise')}</h3>
+    <div className="row between" style={{ marginBottom: 10 }}><h3>{swapFor ? t('Swap exercise') : t('Add exercise')}</h3>
       <Button size="sm" variant="tinted" icon="target" onClick={() => setByMuscle(true)}>{t('By muscle')}</Button>
     </div>
     {/* .picker-search is what index.css keys the keyboard-aware sheet layout on: the sheet
@@ -912,6 +918,17 @@ function ExercisePicker({ onPick, close }) {
       <button className={'chip nocap' + (!eqOn ? ' on' : '')} onClick={() => { setEq(''); setShown(50) }}>{t('Any equipment')}</button>
       {eqOpts.map(x => <button key={x} className={'chip' + (eqOn === x ? ' on' : '')} onClick={() => { setEq(x); setShown(50) }}>{t(x)}</button>)}
     </div>}
+    {suggestions.length > 0 && <>
+      <div className="ss-label" style={{ marginTop: 2 }}>{t('Suggested exercises')}</div>
+      <div className="list">
+        {suggestions.map(e => <div key={'sug-' + e.id} className="item" {...tappable(() => onPick(e))}>
+          <Thumb ex={e} /><div className="grow"><div className="tt capitalize">{exerciseNameFor(e)}</div><div className="ss capitalize">{t(e.tg || e.bp)} · {t(e.eq)}</div></div>
+          <button className="iconbtn chev" aria-label={t('Add “{0}”', exerciseNameFor(e))} style={{ padding: 8, margin: -8 }}
+            onClick={ev => { ev.stopPropagation(); onPick(e, true) }}><Icon name="plus" /></button>
+        </div>)}
+      </div>
+      <div className="ss-label" style={{ marginTop: 12 }}>{t('All exercises')}</div>
+    </>}
     <div className="list">
       {!special && <div className="item" {...tappable(() => customExSheet(null, ex => onPick(ex), q.trim()))}>
         <div className="thumb thumb-x"><Icon name="sparkles" /></div>
@@ -935,7 +952,7 @@ function ExercisePicker({ onPick, close }) {
     {f.length > shown && <><div style={{ height: 8 }} /><Button onClick={() => setShown(s => s + 50)}>{t('Show more')}</Button></>}
   </>
 }
-export const exercisePicker = onPick => ui().openSheet(close => <ExercisePicker onPick={onPick} close={close} />)
+export const exercisePicker = (onPick, opts = {}) => ui().openSheet(close => <ExercisePicker onPick={onPick} close={close} swapFor={opts.swapFor || null} />)
 
 /** Start a safe swap for one exact active-workout occurrence. */
 export function swapActiveWorkoutExercise(index) {
@@ -944,7 +961,7 @@ export function swapActiveWorkoutExercise(index) {
 
   // The "+" on a picker row commits with the default config, exactly as it does in the add
   // flows; tapping the row still opens the config sheet first.
-  const picker = exercisePicker((ex, quick) => quick ? swapTo(ex, defaultConfig(ex.id)) : exConfigSheet(ex, null, cfg => swapTo(ex, cfg), null, null))
+  const picker = exercisePicker((ex, quick) => quick ? swapTo(ex, defaultConfig(ex.id)) : exConfigSheet(ex, null, cfg => swapTo(ex, cfg), null, null), { swapFor: exOr(active.entries[index].id) })
   function swapTo(ex, cfg) {
     // The picker is a chooser here, not a stack you keep adding from: one swap, then back to
     // the workout. (The add flow deliberately leaves it open.)
@@ -1106,7 +1123,7 @@ function ProgressionFields({ ex, mode, c, setC, routine, unit, perSide }) {
   </>
 }
 
-function ExConfig({ ex, existing, onSave, onDelete, close, routine, initial }) {
+function ExConfig({ ex, existing, onSave, onDelete, close, routine, initial, onSwap }) {
   const st = useStore(s => s.S)
   const cardio = isCardio(ex.id)
   const seed = existing || initial || defaultConfig(ex.id)
@@ -1348,10 +1365,11 @@ function ExConfig({ ex, existing, onSave, onDelete, close, routine, initial }) {
       value={c.note || ''} onChange={e => setC(x => ({ ...x, note: e.target.value }))} />
     <Button variant="primary" disabled={progressionStepInvalid} onClick={save}>{existing ? t('Save') : t('Add to routine')}</Button>
     {ex.custom && <><div style={{ height: 8 }} /><Button icon="pencil" onClick={() => { close(); customExSheet(ex) }}>{t('Edit or delete this exercise')}</Button></>}
+    {onSwap && <><div style={{ height: 8 }} /><Button icon="shuffle" onClick={() => { close(); onSwap() }}>{t('Swap exercise')}</Button></>}
     {onDelete && <><div style={{ height: 8 }} /><Button variant="danger" onClick={() => { close(); onDelete() }}>{t('Remove from routine')}</Button></>}
   </>
 }
-export const exConfigSheet = (ex, existing, onSave, onDelete, routine, initial) => ui().openSheet(close => <ExConfig ex={ex} existing={existing} initial={initial} onSave={onSave} onDelete={onDelete} routine={routine} close={close} />)
+export const exConfigSheet = (ex, existing, onSave, onDelete, routine, initial, onSwap) => ui().openSheet(close => <ExConfig ex={ex} existing={existing} initial={initial} onSave={onSave} onDelete={onDelete} routine={routine} close={close} onSwap={onSwap} />)
 
 /* ============================ glyph picker ============================ */
 // Grouped by what the glyph means for a training day, so picking one is a scan

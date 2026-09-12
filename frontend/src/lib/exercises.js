@@ -199,3 +199,58 @@ export function matchExercise(e, query) {
   const corpus = corpusOf(e)
   return tokens.every(tok => corpus.includes(tok))
 }
+
+/**
+ * Exercises that could stand in for `exId`, best first.
+ *
+ * "Could stand in" is read off the catalogue's own anatomy fields rather than a curated list of
+ * pairs: same target muscle (`tg`) is a true substitute, same body part is a fallback for the
+ * exercises the catalogue leaves without a target. Equipment the lifter actually has wins ties,
+ * because a suggestion they cannot perform is not a suggestion.
+ *
+ * @param st     store state
+ * @param exId   the exercise being replaced
+ * @param opts   { limit = 6, available } — `available` (ex => boolean) keeps this module free of
+ *               the equipment layer, which imports from here.
+ */
+export function suggestedSwaps(st, exId, { limit = 6, available = null } = {}) {
+  const current = exOr(exId)
+  if (!current) return []
+  const usage = {}
+  for (const r of st.routines || []) for (const e of r.ex || []) usage[e.id] = (usage[e.id] || 0) + 1
+  for (const w of st.workouts || []) for (const e of w.entries || []) usage[e.id] = (usage[e.id] || 0) + 1
+
+  const scored = []
+  for (const e of allExercises(st)) {
+    if (e.id === exId) continue
+    // The catalogue files mobility work under the same target muscle as the lift it stretches, so
+    // "chest and front of shoulder stretch" ranks as a substitute for the bench press. It is not
+    // one. Name-based because the data carries no category to filter on.
+    if (/\bstretch(es|ing)?\b/i.test(e.n || '')) continue
+    let score = 0
+    if (current.tg && e.tg === current.tg) score = 3
+    else if (current.bp && e.bp === current.bp) score = 1
+    if (!score) continue
+    // Same target muscle is not the same movement: a fly and a bench press both say "pectorals".
+    // The secondary muscles are what separate them — a press recruits triceps and delts, a fly
+    // does not — so overlap there is the closest thing the catalogue has to "same pattern".
+    const mine = new Set(current.sm || [])
+    if (mine.size) {
+      const shared = (e.sm || []).filter(m => mine.has(m)).length
+      const union = new Set([...mine, ...(e.sm || [])]).size
+      score += 1.5 * (shared / union)
+    }
+    if (current.eq && e.eq === current.eq) score += 0.5
+    if (available && available(e)) score += 0.5
+    // Weighted, not just a tie-break. The catalogue is 1300 exercises deep and most of them are
+    // variations nobody trains — ball-on-the-wall calf raises, shoulder stretches. An exercise
+    // already in this lifter's routines or history is one they can actually do today, which
+    // beats anatomical closeness to something they have never touched.
+    const used = usage[e.id] || 0
+    score += 2.5 * Math.min(used, 8) / 8
+    scored.push({ e, score, used })
+  }
+  // Raw `n` for the tie-break, not the localized name: the translation layer imports from here.
+  scored.sort((a, b) => b.score - a.score || b.used - a.used || String(a.e.n || '').localeCompare(String(b.e.n || '')))
+  return scored.slice(0, limit).map(x => x.e)
+}
