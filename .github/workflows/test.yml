@@ -89,8 +89,11 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 22
-      # Nothing to install: the Coach tests run on node:test and drive the in-repo fixture
-      # provider, so the whole job works without an AI account, a network, or a dependency.
+      # The Coach tests drive the in-repo fixture provider, so no AI account and no network are
+      # needed — but coach/node-fetch.js imports undici, a real dependency, so the install is not
+      # optional. --omit=optional still leaves the Agent SDK out: nothing here needs it.
+      - run: npm ci --omit=optional
+        working-directory: api
       - run: npm test
         working-directory: api
       # The api's copy of the exercise catalogue is generated and committed. A dataset change
