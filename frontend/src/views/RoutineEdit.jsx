@@ -6,7 +6,7 @@ import { exOr } from '../lib/exercises.js'
 import { activeProfile, exAvailable } from '../lib/equipment.js'
 import { uid } from '../lib/format.js'
 import { t, exerciseNameFor } from '../lib/i18n.js'
-import { supersetUnits, moveSupersetUnit, cleanupSg, exLine, defaultConfig } from '../lib/history.js'
+import { supersetUnits, moveSupersetUnit, cleanupSg, exLine, defaultConfig, swapConfig } from '../lib/history.js'
 import { Thumb } from '../components/Media.jsx'
 import { glyphPicker, exercisePicker, exConfigSheet, confirmSheet } from '../sheets.jsx'
 import Icon from '../components/Icon.jsx'
@@ -401,12 +401,11 @@ export default function RoutineEdit() {
             // only the exercise changes. Picking from the "+" keeps this exercise's sets/reps;
             // tapping the row opens the config so you can set them for the new one.
             const swap = () => exercisePicker((pick, quick) => {
-              const keep = { ...e, id: pick.id }
               if (quick) {
-                edit(x => { x[i] = keep })
+                edit(x => { x[i] = { id: pick.id, ...swapConfig(x[i], pick.id) } })
                 toast(t('“{0}” swapped for “{1}”', exerciseNameFor(ex), exerciseNameFor(pick)))
               } else {
-                exConfigSheet(pick, e, cfg => edit(x => { x[i] = { id: pick.id, sg: x[i].sg, ...cfg } }), null, r)
+                exConfigSheet(pick, swapConfig(e, pick.id), cfg => edit(x => { x[i] = { id: pick.id, sg: x[i].sg, ...cfg } }), null, r)
               }
             }, { swapFor: ex })
             exConfigSheet(ex, e, cfg => edit(x => { x[i] = { id: x[i].id, sg: x[i].sg, ...cfg } }), () => edit(x => { x.splice(i, 1); cleanupSg(x) }), r, undefined, swap)

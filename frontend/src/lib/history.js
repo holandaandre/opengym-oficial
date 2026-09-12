@@ -720,3 +720,33 @@ export function bestWeightForEntry(entry = {}) {
     && Number.isFinite(topWeight) && topWeight > best) best = topWeight
   return best
 }
+
+/**
+ * The config a routine slot should carry after its exercise is swapped.
+ *
+ * Half of a slot describes the *prescription* — how many sets, how many reps, which progression —
+ * and belongs to the lifter. The other half describes the *exercise*: `mode` (reps or time),
+ * `bodyweight`, cardio's own fields. Carrying that half across a swap is how a barbell bench press
+ * ends up flagged as a bodyweight movement and stops asking for load. So the new exercise's own
+ * defaults win, and only the prescription is inherited — and only when both sides agree on the mode.
+ */
+export function swapConfig(slot, newId) {
+  const base = defaultConfig(newId)
+  const out = { ...base }
+  const sameMode = modeOf({ ...slot }) === modeOf({ id: newId })
+  if (sameMode) {
+    // Shape fields: only meaningful if the new exercise's own defaults have them.
+    for (const k of ['sets', 'reps', 'sec', 'weight', 'min', 'speed']) {
+      if (slot[k] !== undefined && base[k] !== undefined) out[k] = slot[k]
+    }
+    // Pure prescription: the lifter chose these for this slot and no default carries them, so
+    // requiring them in `base` would silently drop the progression policy on every swap.
+    for (const k of ['prog', 'inc', 'repsMin', 'repsMax']) {
+      if (slot[k] !== undefined) out[k] = slot[k]
+    }
+  }
+  // Slot identity, never the exercise's: the superset group and the note the lifter wrote here.
+  if (slot.sg !== undefined) out.sg = slot.sg
+  if (slot.note !== undefined) out.note = slot.note
+  return out
+}

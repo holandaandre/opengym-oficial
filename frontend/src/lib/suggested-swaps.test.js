@@ -43,3 +43,28 @@ describe('suggestedSwaps', () => {
     expect(suggestedSwaps(state(), 'nao-existe')).toEqual([])
   })
 })
+
+describe('swapConfig', () => {
+  test('the new exercise decides what it is; the slot only keeps its prescription', async () => {
+    const { swapConfig } = await import('./history.js')
+    // A bodyweight plank slot swapped for a barbell bench press: carrying `bodyweight` across
+    // would leave the bench flagged as bodyweight and never asking for load again.
+    const plank = { id: '1775', sets: 3, reps: 10, weight: 0, mode: 'reps', bodyweight: true }
+    const out = swapConfig(plank, '0025')
+    expect(out.bodyweight).toBeUndefined()
+    expect(out.mode).toBe('reps')
+  })
+
+  test('sets, reps and load survive a swap between two exercises of the same mode', async () => {
+    const { swapConfig } = await import('./history.js')
+    const out = swapConfig({ id: '0025', sets: 4, reps: 6, weight: 80, mode: 'reps', prog: 'linear' }, '0027')
+    expect(out).toMatchObject({ sets: 4, reps: 6, weight: 80, prog: 'linear' })
+  })
+
+  test('the superset group and the slot note are kept', async () => {
+    const { swapConfig } = await import('./history.js')
+    const out = swapConfig({ id: '0025', sets: 3, reps: 10, sg: 'a', note: 'pegada fechada' }, '0027')
+    expect(out.sg).toBe('a')
+    expect(out.note).toBe('pegada fechada')
+  })
+})
