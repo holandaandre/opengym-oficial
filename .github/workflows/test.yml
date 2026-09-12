@@ -144,7 +144,7 @@ jobs:
       - name: the coach image carries a runnable Agent SDK
         run: |
           docker run --rm opengym-api:coach node --input-type=module -e '
-            const { adapterFor } = await import("./coach/adapters/index.js");
+            const { adapterFor } = await import("./api/coach/adapters/index.js");
             const r = await adapterFor("claude").check();
             if (!r.ok) { console.error(r.error); process.exit(1); }
             console.log(r.version);
