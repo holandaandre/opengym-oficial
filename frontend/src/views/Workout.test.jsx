@@ -1235,7 +1235,7 @@ describe('workout controls: the more menu and the set menu', () => {
   it('opens a per-set menu from the set number with drop, burst and remove', async () => {
     await mount([exercise('plain-bench', [false, false])])
     await act(async () => { container.querySelector('button[aria-label="Set 2"]').dispatchEvent(new dom.Event('click', { bubbles: true })) })
-    expect(lastMenu().items.filter(Boolean).map(it => it.label)).toEqual(['Drop set', 'Rest-pause burst', 'Remove this set'])
+    expect(lastMenu().items.filter(Boolean).map(it => it.label)).toEqual(['Warm-up set', 'Set to failure', 'Drop set', 'Rest-pause burst', 'Remove this set'])
 
     await act(async () => { item('Drop set').onClick() })
     expect(mocks.S.active.entries[0].sets[1].drops?.length).toBe(1)
@@ -1243,6 +1243,48 @@ describe('workout controls: the more menu and the set menu', () => {
     await act(async () => { container.querySelector('button[aria-label="Set 2"]').dispatchEvent(new dom.Event('click', { bubbles: true })) })
     await act(async () => { item('Remove this set').onClick() })
     expect(mocks.S.active.entries[0].sets.length).toBe(1)
+  })
+
+  // The set number doubles as the type control: warm-up and "to failure" are set from the same
+  // menu. Each case mounts the state it is about — the menu closes over the render's snapshot,
+  // so toggling twice inside one mount would only ever read the first state back.
+  const tapSet = async n => {
+    await act(async () => { container.querySelector(`button[aria-label="Set ${n}"]`).dispatchEvent(new dom.Event('click', { bubbles: true })) })
+  }
+  const withSets = sets => exercise('plain-bench', [], { sets })
+
+  it('turns a work set into a warm-up', async () => {
+    await mount([exercise('plain-bench', [false, false])])
+    await tapSet(2)
+    await act(async () => { item('Warm-up set').onClick() })
+    expect(mocks.S.active.entries[0].sets[1].phase).toBe('warmup')
+  })
+
+  it('turns a warm-up back into a work set, and offers it nothing else', async () => {
+    await mount([withSets([{ w: 40, r: 10, done: false, phase: 'warmup' }, { w: 60, r: 5, done: false }])])
+    await tapSet(1)
+    const labels = lastMenu().items.filter(Boolean).map(it => it.label)
+    expect(labels).toContain('Normal set')
+    expect(labels).not.toContain('Set to failure')
+    expect(labels).not.toContain('Drop set')
+    await act(async () => { item('Normal set').onClick() })
+    expect(mocks.S.active.entries[0].sets[0].phase).toBe('work')
+  })
+
+  it('records "to failure" as RIR 0 even with the effort column off', async () => {
+    await mount([exercise('plain-bench', [false, false])])
+    await tapSet(2)
+    await act(async () => { item('Set to failure').onClick() })
+    expect(mocks.S.active.entries[0].sets[1].rir).toBe(0)
+  })
+
+  it('a set already at RIR 0 offers clearing the mark instead of setting it', async () => {
+    await mount([withSets([{ w: 60, r: 5, done: true, rir: 0 }])])
+    await tapSet(1)
+    const marked = item('Set to failure')
+    expect(marked.on).toBe(true)
+    await act(async () => { marked.onClick() })
+    expect(mocks.S.active.entries[0].sets[0].rir ?? null).toBe(null)
   })
 
   it('brings the legacy button rows back per switch', async () => {

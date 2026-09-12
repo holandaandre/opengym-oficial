@@ -13,7 +13,7 @@ import { api } from '../lib/api.js'
 import { insertionIndexAfterCurrentUnit, nextUnfinishedUnit, setProgressHighWater, supersetFlowStep, restAfterSet, restOnRecheck, restSecFor } from '../lib/supersetFlow.js'
 import Media from '../components/Media.jsx'
 import { startFlow, exercisePicker, exConfigSheet, exerciseDetailSheet, finishWorkout, workoutCompleteSheet, confirmSheet, exerciseNoteSheet, sessionNoteSheet, swapActiveWorkoutExercise, barWeightSheet, menuSheet, effortPickerSheet, exerciseHistorySheet, addRoutineToSessionSheet } from '../sheets.jsx'
-import { effortColor } from '../lib/effort.js'
+import { effortColor, rirOf } from '../lib/effort.js'
 import Icon from '../components/Icon.jsx'
 import { Button, Check, NumberField } from '../components/ui.jsx'
 import { nextPrescription, applyPrescription, defaultIncrement, weightIncrement, stepWeight } from '../lib/progression.js'
@@ -223,12 +223,26 @@ function ExerciseBlock({ entryIdx, compact, dense, onToggle, onToggleSide, onFie
   })
   // The set number is the set's own menu: drop / burst / remove — three things that used to
   // sit as chips and an X on every single row.
+  // Which field a "to failure" tap writes: the profile's own scale when it logs one, RIR
+  // otherwise — rirOf() reads both back the same way.
+  const failCol = { f: kind === 'rpe' ? 'rpe' : 'rir', rpe: kind === 'rpe' }
   const openSetMenu = (s, i) => {
     const warm = isWarmupRow(s)
     menuSheet({
       title: (warm ? t('Warm-up') : t('Set {0}', entry.sets.slice(0, i + 1).filter(x => isWarmupRow(x) === warm).length)),
       subtitle: setLabel(entry.id, s, entry.target),
       items: [
+        // Set type, the way the row itself reads it: a warm-up is a phase, and "to failure" is
+        // effort — RIR 0 — not a fourth phase. Writing it as effort keeps one meaning for one
+        // thing: the progression engine, the charts and the Coach already read RIR.
+        !warm && { icon: 'flame', label: t('Warm-up set'), on: false, onClick: () => onField(i, 'phase', 'warmup') },
+        warm && { icon: 'dumbbell', label: t('Normal set'), on: false, onClick: () => onField(i, 'phase', 'work') },
+        // Offered even when the effort column is switched off: "went to failure" is worth
+        // recording either way, and RIR 0 is where the progression engine and the Coach read it
+        // from. With the column off it is written as RIR, the internal scale.
+        !warm && mode === 'reps' && (rirOf(s) === 0
+          ? { icon: 'checkCircle', label: t('Set to failure'), on: true, onClick: () => onField(i, failCol.f, null) }
+          : { icon: 'flag', label: t('Set to failure'), sub: t('Logs {0}', failCol.rpe ? 'RPE 10' : 'RIR 0'), onClick: () => onField(i, failCol.f, failCol.rpe ? 10 : 0) }),
         !warm && mode === 'reps' && !isRestPauseSet(s) && { icon: 'arrowDown', label: t('Drop set'), sub: t('+ Drop'), onClick: () => addDropRow(i) },
         !warm && mode === 'reps' && !isDropSet(s) && { icon: 'bolt', label: t('Rest-pause burst'), sub: t('+ Burst'), onClick: () => addBurstRow(i) },
         { icon: 'trash', label: t('Remove this set'), danger: true, disabled: entry.sets.length <= 1, onClick: () => onRemoveSetAt(i) },
@@ -412,6 +426,11 @@ function ExerciseBlock({ entryIdx, compact, dense, onToggle, onToggleSide, onFie
         const isFirstWarmup = warm && !warmBefore
         // Numbering restarts per phase: with two warm-ups the first work set reads 1, not 3.
         const phaseNum = entry.sets.slice(0, i + 1).filter(x => isWarmupRow(x) === warm).length
+        // The number doubles as the set's type, which is what makes the type visible without
+        // opening anything: W for a warm-up, F for a set taken to failure, the count otherwise.
+        const failed = !warm && rirOf(s) === 0
+        const setMark = warm ? t('W') : failed ? t('F') : phaseNum
+        const markClass = 'n' + (warm ? ' n-warm' : failed ? ' n-fail' : '')
         return <div key={i}>
           {isFirstWarmup && <div className="setph">{t('Warm-up')}</div>}
           {!warm && warmBefore && <div className="setsep" />}
@@ -419,7 +438,7 @@ function ExerciseBlock({ entryIdx, compact, dense, onToggle, onToggleSide, onFie
             // Unilateral work set: the number sits beside a two-row L/R stack, each side logged
             // and ticked on its own (issue #60).
             <div ref={el => onSetRowRef?.(i, el)} className={'setrow-side' + (s.done ? ' done' : '')}>
-              <button type="button" className="n" aria-label={t('Set {0}', phaseNum)} title={t('More')} onClick={() => openSetMenu(s, i)}>{phaseNum}</button>
+              <button type="button" className={markClass} aria-label={t('Set {0}', phaseNum)} title={t('More')} onClick={() => openSetMenu(s, i)}>{setMark}</button>
               <div className="side-rows">
                 {sideRow(s, i, 'L', col1, col2, col3)}
                 {sideExtras(s, i, 'L')}
@@ -429,7 +448,7 @@ function ExerciseBlock({ entryIdx, compact, dense, onToggle, onToggleSide, onFie
             </div>
           ) : (
           <div ref={el => onSetRowRef?.(i, el)} className={'setrow' + (s.done ? ' done' : '') + (col3 ? ' eff3' : '')}>
-            <button type="button" className="n" aria-label={t('Set {0}', phaseNum)} title={t('More')} onClick={() => openSetMenu(s, i)}>{phaseNum}</button>
+            <button type="button" className={markClass} aria-label={t('Set {0}', phaseNum)} title={t('More')} onClick={() => openSetMenu(s, i)}>{setMark}</button>
             {cell(s, i, col1, 'w')}
             {col2 && cell(s, i, col2, 'r')}
             {col3 && effortCell(s, i, col3)}
