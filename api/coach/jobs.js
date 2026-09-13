@@ -91,6 +91,34 @@ export function readState(uid) {
   catch { return null; }
 }
 
+/**
+ * Stamp `coach.lastReview` after a scheduled review has actually run.
+ *
+ * The cadence reads this stamp to decide whether there is anything new to look at. It used to be
+ * written only by the app, when someone accepted or dismissed the proposal — so a proposal left
+ * sitting meant the server never saw a stamp, counted every workout ever logged as "new", and
+ * queued another review every tick. One unanswered card produced 184 runs in a morning here.
+ *
+ * Written straight to the state file rather than through the client: the client may not be open
+ * for days, and by then the spend has happened. The app still stamps it on accept/dismiss, which
+ * is harmless — both write the same field with a later timestamp.
+ */
+function stampReview(uid) {
+  const file = path.join(DATA, 'state-' + safe(uid) + '.json');
+  try {
+    const S = JSON.parse(fs.readFileSync(file, 'utf8'));
+    S.coach = { ...(S.coach || {}), lastReview: { at: Date.now() } };
+    S._ts = Date.now();
+    const tmp = file + '.tmp';
+    fs.writeFileSync(tmp, JSON.stringify(S));
+    fs.renameSync(tmp, file);
+  } catch (e) {
+    // A missing or unreadable state file is already fatal to the job itself; the cadence
+    // refuses to run without one too, so there is no loop to guard against here.
+    console.error('coach: could not stamp lastReview for', uid, e.message);
+  }
+}
+
 /* ---------- caps ---------- */
 
 const todayISO = () => new Date().toISOString().slice(0, 10);
@@ -256,6 +284,12 @@ function finish(job, result) {
     pending: result.pending !== undefined ? result.pending : rec.pending,
     history
   });
+  // A review that ran is a review, whatever the user later does with the card. Stamping on any
+  // conclusive outcome — proposal, "nothing to change", even a provider failure — is what keeps
+  // a silent loop from forming; a failure that repeats is bounded by the cadence's own interval
+  // rather than by how fast the queue can drain.
+  if (job.kind === 'review' && result.outcome !== 'cancelled') stampReview(job.uid);
+
   cfgStore.logJob({
     at: new Date().toISOString(), uid: job.uid, kind: job.kind, trigger: job.trigger,
     outcome: result.outcome, errorClass: result.errorClass || null,

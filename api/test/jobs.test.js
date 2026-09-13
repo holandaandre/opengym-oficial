@@ -54,6 +54,31 @@ test('one job per profile at a time', async () => {
   await settle(uid);
 });
 
+/* The loop this prevents: the cadence asks "anything new since the last review?", the stamp that
+   answers it used to be written only by the app when someone acted on the card, and a card left
+   sitting meant every workout ever logged counted as new — one queued review per tick, 184 runs
+   in a morning on a real instance (13/09/2026). */
+test('a scheduled review stamps lastReview itself, so the cadence stops asking', async () => {
+  const uid = 'u-stamp';
+  writeState(DIR, uid, sampleState());
+  assert.equal(jobs.readState(uid).coach.lastReview, undefined);
+
+  jobs.enqueue(uid, { kind: 'review', trigger: 'scheduled' });
+  await settle(uid);
+
+  const stamp = jobs.readState(uid).coach.lastReview;
+  assert.ok(stamp?.at > 0, 'the server must stamp it without waiting for the client');
+});
+
+test('a cancelled review leaves no stamp — it never read anything', async () => {
+  const uid = 'u-stamp-cancel';
+  writeState(DIR, uid, sampleState());
+  jobs.enqueue(uid, { kind: 'review' });
+  jobs.cancel(uid);
+  await settle(uid);
+  assert.equal(jobs.readState(uid).coach.lastReview, undefined);
+});
+
 /* Changing your mind mid-thought. The Coach is single-flight, so before this the only way out
    was to wait the job out — or wait five minutes for the timeout. */
 test('cancelling frees the profile to ask again straight away', async () => {
