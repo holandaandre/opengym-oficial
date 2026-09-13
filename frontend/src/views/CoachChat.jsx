@@ -27,7 +27,7 @@ import {
   changeTitle, changeValues, exName, canRevert, revertLast
 } from '../lib/coach.js'
 import { insightsFor, sessionInsights } from '../lib/coach-insights.js'
-import { useCoachStatus, requestReview, requestDebrief, requestPlan, refinePlan, resolvePending, cohortStats, setCohortShare, jobErrorText } from '../lib/coach-api.js'
+import { useCoachStatus, requestReview, requestDebrief, requestPlan, refinePlan, resolvePending, cancelCoach, cohortStats, setCohortShare, jobErrorText } from '../lib/coach-api.js'
 import { confirmSheet } from '../sheets.jsx'
 import Icon from '../components/Icon.jsx'
 import LineChart from '../components/LineChart.jsx'
@@ -139,6 +139,16 @@ export default function CoachChat() {
   const showHistory = () => openSheet(close => <HistorySheet S={S} close={close} openSheet={openSheet} />)
   const showCohort = () => openSheet(() => <CohortSheet S={S} update={update} toast={toast} />)
 
+  const onCancel = async () => {
+    try {
+      await cancelCoach()
+      update(s => { appendChat(s, { role: 'coach', kind: 'cancelled', text: t('Stopped. Ask me again whenever you like.') }) })
+    } catch (e) {
+      toast(jobErrorText(e))
+    }
+    refresh()
+  }
+
   const idle = !job && !pending
   const menu = () => openSheet(close => <div className="chat-menu">
     <h3>{t('Coach')}</h3>
@@ -188,7 +198,14 @@ export default function CoachChat() {
 
       {(coach.chat || []).map(m => <Message key={m.id} m={m} S={S} profile={coach.profile} openSheet={openSheet} />)}
 
-      {job && <Typing S={S} kind={job.kind} coachLocal={coachLocal} config={config} />}
+      {job && <>
+        <Typing S={S} kind={job.kind} coachLocal={coachLocal} config={config} />
+        {/* Changing your mind mid-thought used to mean waiting the job out: the Coach is
+            single-flight, so nothing else could be asked until it finished. */}
+        <div className="row" style={{ justifyContent: 'center', marginTop: 6 }}>
+          <Button size="sm" variant="ghost" icon="xmark" onClick={onCancel}>{t('Stop')}</Button>
+        </div>
+      </>}
 
       {pending && !job && (pending.kind === 'create'
         ? <PlanCard p={pending} S={S} update={update} toast={toast} nav={nav} refresh={refresh} />

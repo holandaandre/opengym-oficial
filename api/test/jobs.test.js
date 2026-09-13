@@ -54,6 +54,40 @@ test('one job per profile at a time', async () => {
   await settle(uid);
 });
 
+/* Changing your mind mid-thought. The Coach is single-flight, so before this the only way out
+   was to wait the job out — or wait five minutes for the timeout. */
+test('cancelling frees the profile to ask again straight away', async () => {
+  const uid = 'u-cancel';
+  writeState(DIR, uid, sampleState());
+  jobs.enqueue(uid, { kind: 'review' });
+  assert.throws(() => jobs.enqueue(uid, { kind: 'review' }), e => e.code === 'busy');
+
+  const r = jobs.cancel(uid);
+  assert.ok(r.ok);
+  assert.ok(r.stopped === 'queued' || r.stopped === 'running');
+  assert.equal(jobs.status(uid).job, null);
+  // The point of the button: a second question is accepted immediately.
+  assert.doesNotThrow(() => jobs.enqueue(uid, { kind: 'review' }));
+  await settle(uid);
+});
+
+test('a cancelled job never lands a proposal, however good its answer was', async () => {
+  const uid = 'u-cancel-late';
+  writeState(DIR, uid, sampleState());
+  jobs.enqueue(uid, { kind: 'review' });
+  jobs.cancel(uid);
+  await settle(uid);
+  const st = jobs.status(uid);
+  assert.equal(st.pending, null, 'a withdrawn question must not be answered');
+  assert.equal(st.job, null);
+});
+
+test('cancelling with nothing running is a no-op, not an error', () => {
+  const uid = 'u-cancel-idle';
+  writeState(DIR, uid, sampleState());
+  assert.deepEqual(jobs.cancel(uid), { ok: true, stopped: null });
+});
+
 test('the daily cap is enforced and reported as its own failure', async () => {
   const uid = 'u-cap';
   writeState(DIR, uid, sampleState());

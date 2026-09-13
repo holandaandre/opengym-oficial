@@ -108,6 +108,8 @@ export default {
   'Add to routine': '루틴에 추가',
   'Remove exercise': '운동 제거',
   'Swap exercise': '운동 바꾸기',
+  'Stop': '중지',
+  'Stopped. Ask me again whenever you like.': '중지했어요. 언제든 다시 물어보세요.',
   'Warm-up set': '워밍업 세트',
   'Normal set': '일반 세트',
   'Set to failure': '실패 지점까지',

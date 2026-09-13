@@ -148,6 +148,12 @@ function archive(uid, rec, outcome) {
 const queue = [];
 let running = 0;
 const inflight = new Set();     // uids with a job queued or running (FR-07 single-flight)
+/* Jobs the user walked away from. A queued one never starts; a running one is let go rather
+   than killed — the adapter interface takes no abort signal, and seven providers would have to
+   grow one. The provider finishes into a result nobody reads, and the profile is free to ask
+   again immediately, which is the whole point of the button. The call is already paid for
+   either way: the cap counts at enqueue. */
+const cancelled = new Set();    // job ids
 
 class CoachError extends Error {
   constructor(code, message) { super(message); this.code = code; }
@@ -228,6 +234,12 @@ function pump() {
 }
 
 function finish(job, result) {
+  // A cancelled job may still land here minutes later, with a perfectly good proposal in hand.
+  // Showing it would be the app answering a question that was withdrawn.
+  if (cancelled.has(job.id)) {
+    cancelled.delete(job.id);
+    result = { outcome: 'cancelled', errorClass: null, pending: undefined, detail: result.detail || null };
+  }
   const rec = readUser(job.uid);
   const history = [...(rec.history || []), {
     id: job.id, kind: job.kind, trigger: job.trigger, outcome: result.outcome,
@@ -322,6 +334,30 @@ async function execute(job) {
   } finally {
     if (jobDir) fs.rmSync(jobDir, { recursive: true, force: true });
   }
+}
+
+/**
+ * Withdraw the job this profile has in flight. Returns what was actually stopped so the caller
+ * can tell "nothing was running" from "stopped it" without guessing.
+ */
+export function cancel(uid) {
+  const rec = readUser(uid);
+  const current = rec.current;
+  if (!current) return { ok: true, stopped: null };
+
+  const queuedAt = queue.findIndex(j => j.uid === uid);
+  if (queuedAt >= 0) {
+    const [job] = queue.splice(queuedAt, 1);
+    inflight.delete(uid);
+    finish(job, { outcome: 'cancelled' });
+    return { ok: true, stopped: 'queued' };
+  }
+
+  // Already with the provider: mark it, and free the profile now rather than at the timeout.
+  cancelled.add(current.id);
+  inflight.delete(uid);
+  writeUser(uid, { ...rec, current: null });
+  return { ok: true, stopped: 'running' };
 }
 
 /* ---------- decisions ---------- */

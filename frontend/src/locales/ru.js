@@ -108,6 +108,8 @@ export default {
   'Add to routine': 'Добавить в программу',
   'Remove exercise': 'Убрать упражнение',
   'Swap exercise': 'Заменить упражнение',
+  'Stop': 'Остановить',
+  'Stopped. Ask me again whenever you like.': 'Остановлено. Спросите снова, когда захотите.',
   'Warm-up set': 'Разминочный подход',
   'Normal set': 'Обычный подход',
   'Set to failure': 'Подход до отказа',

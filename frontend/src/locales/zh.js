@@ -108,6 +108,8 @@ export default {
   'Add to routine': '加入训练日',
   'Remove exercise': '移除动作',
   'Swap exercise': '更换动作',
+  'Stop': '停止',
+  'Stopped. Ask me again whenever you like.': '已停止。随时可以再问我。',
   'Warm-up set': '热身组',
   'Normal set': '正常组',
   'Set to failure': '力竭组',

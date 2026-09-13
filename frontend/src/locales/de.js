@@ -113,6 +113,8 @@ export default {
   'Add to routine': 'Zur Routine hinzufügen',
   'Remove exercise': 'Übung entfernen',
   'Swap exercise': 'Übung wechseln',
+  'Stop': 'Stopp',
+  'Stopped. Ask me again whenever you like.': 'Gestoppt. Frag mich einfach wieder.',
   'Warm-up set': 'Aufwärmsatz',
   'Normal set': 'Normaler Satz',
   'Set to failure': 'Satz bis zum Muskelversagen',

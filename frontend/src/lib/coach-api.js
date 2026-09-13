@@ -52,6 +52,12 @@ export const requestDebrief = async workoutId => DEMO ? (await demo()).demoDebri
 // server has a room; a phone with its own key and the demo both answer locally.
 export const cohortStats = async () => DEMO ? (await demo()).demoCohort(S()) : LOCAL() ? { ok: false, enabled: false } : api('/api/coach/cohort')
 export const setCohortShare = async share => (DEMO || LOCAL()) ? { ok: true, sharing: !!share } : api('/api/coach/cohort/share', { method: 'POST', body: JSON.stringify({ share: !!share }) })
+/* Withdraw the job in flight. On a server instance the profile is freed at once and a job
+   already with the provider is let go (api/coach/jobs.js). Demo and own-key modes run the job
+   on this device with no queue behind them, so there is nothing to tell anyone — the caller
+   just stops waiting. */
+export const cancelCoach = async () => (DEMO || LOCAL()) ? { ok: true, stopped: 'local' } : api('/api/coach/cancel', { method: 'POST', body: '{}' })
+
 export const resolvePending = async body => DEMO ? (await demo()).demoResolve() : LOCAL() ? (await local()).localResolve(body) : api('/api/coach/pending/resolve', { method: 'POST', body: JSON.stringify(body) })
 export const forgetCoach = async () => DEMO ? (await demo()).demoResolve() : LOCAL() ? (await local()).localForget() : api('/api/coach/forget', { method: 'POST', body: '{}' })
 export const disclosure = async () => DEMO ? (await demo()).demoDisclosure() : LOCAL() ? (await local()).localDisclosure() : api('/api/coach/disclosure')

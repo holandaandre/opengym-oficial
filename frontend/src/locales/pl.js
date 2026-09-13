@@ -108,6 +108,8 @@ export default {
   'Add to routine': 'Dodaj do planu',
   'Remove exercise': 'Usuń ćwiczenie',
   'Swap exercise': 'Zamień ćwiczenie',
+  'Stop': 'Zatrzymaj',
+  'Stopped. Ask me again whenever you like.': 'Zatrzymano. Zapytaj ponownie, kiedy zechcesz.',
   'Warm-up set': 'Seria rozgrzewkowa',
   'Normal set': 'Seria normalna',
   'Set to failure': 'Seria do upadku',

@@ -108,6 +108,8 @@ export default {
   'Add to routine': 'Rutine ekle',
   'Remove exercise': 'Egzersizi kaldır',
   'Swap exercise': 'Egzersizi değiştir',
+  'Stop': 'Durdur',
+  'Stopped. Ask me again whenever you like.': 'Durduruldu. İstediğin zaman tekrar sor.',
   'Warm-up set': 'Isınma seti',
   'Normal set': 'Normal set',
   'Set to failure': 'Tükenmeye kadar set',

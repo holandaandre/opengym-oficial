@@ -744,6 +744,8 @@ export default {
   'Move up': 'เลื่อนขึ้น',
   'Move down': 'เลื่อนลง',
   'Swap exercise': 'สลับท่าออกกำลังกาย',
+  'Stop': 'หยุด',
+  'Stopped. Ask me again whenever you like.': 'หยุดแล้ว ถามใหม่ได้ทุกเมื่อ',
   'Warm-up set': 'เซตวอร์มอัพ',
   'Normal set': 'เซตปกติ',
   'Set to failure': 'เซตจนหมดแรง',

@@ -84,6 +84,13 @@ export function coachRoutes({ json, readBody, readSession, requireAdmin }) {
       } catch (e) { failEnqueue(res, e); }
     },
 
+    /* Changed your mind while it was thinking. The profile is freed immediately; a job already
+       with the provider is let go rather than killed (see jobs.cancel). */
+    'POST /api/coach/cancel': async (req, res) => {
+      const user = guard(req, res); if (!user) return;
+      json(res, 200, jobs.cancel(user.id));
+    },
+
     // One workout, read closely. Nothing to apply — the card is kept in the user's log.
     'POST /api/coach/debrief': async (req, res) => {
       const user = guard(req, res); if (!user) return;

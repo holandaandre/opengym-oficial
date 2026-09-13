@@ -108,6 +108,8 @@ export default {
   'Add to routine': 'रूटीन में जोड़ें',
   'Remove exercise': 'व्यायाम हटाएँ',
   'Swap exercise': 'व्यायाम बदलें',
+  'Stop': 'रोकें',
+  'Stopped. Ask me again whenever you like.': 'रोक दिया। जब चाहें फिर पूछें।',
   'Warm-up set': 'वार्म-अप सेट',
   'Normal set': 'सामान्य सेट',
   'Set to failure': 'फेल्योर तक सेट',
