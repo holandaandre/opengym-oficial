@@ -96,3 +96,4 @@ test('a week that genuinely got worse still shows up', () => {
   const r = recoverySummary({ recovery: noites('2026-09-13', 5.5, 7.5) }, null);
   assert.equal(r.sleepHours.delta, -2, 'robust is not the same as blind');
 });
+

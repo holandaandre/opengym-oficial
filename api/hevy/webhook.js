@@ -83,12 +83,17 @@ function resolveUid(users) {
    part is the field most likely to differ for the same lift — an earlier import here left "single
    arm tricep extension (dumbbell)" filed under upper legs, and a name+bp rule would have answered
    that by adding a second copy rather than reusing the one already in the log. */
-function reuseCustoms(S, parsed) {
+export function reuseCustoms(S, parsed) {
   const key = c => (c.n || '').trim().toLowerCase();
-  const existing = new Map((S.customEx || []).map(c => [key(c), c.id]));
+  // Hevy's own id first: it survives a rename, which the name obviously does not. Renaming the
+  // 45 imported exercises into Portuguese was enough to make the next import recreate two of
+  // them in English. Name matching stays as the fallback for anything imported before ids were
+  // recorded, and for exercises the user typed by hand.
+  const porHevy = new Map((S.customEx || []).filter(c => c.hevyId).map(c => [c.hevyId, c.id]));
+  const porNome = new Map((S.customEx || []).map(c => [key(c), c.id]));
   const rename = new Map();
   parsed.customEx = (parsed.customEx || []).filter(c => {
-    const hit = existing.get(key(c));
+    const hit = (c.hevyId && porHevy.get(c.hevyId)) || porNome.get(key(c));
     if (!hit) return true;
     rename.set(c.id, hit);
     return false;

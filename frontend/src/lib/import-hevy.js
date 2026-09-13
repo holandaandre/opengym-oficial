@@ -172,7 +172,10 @@ function makeResolver(templates) {
       const t = templateId ? byId.get(templateId) : null
       const name = (t?.title || fallbackTitle || 'exercise').toLowerCase()
       c = {
-        id: 'im' + uid(), n: name, custom: true, eq: 'custom', tg: '', desc: '',
+        // Where it came from. Without it the only handle on an invented exercise is its name,
+        // and a rename — into the user's own language, say — makes the next import create a
+        // second copy of the same movement. Same lesson as the Hevy translation split.
+        id: 'im' + uid(), hevyId: templateId || null, n: name, custom: true, eq: 'custom', tg: '', desc: '',
         bp: bpOfTemplate(t) || (t?.type === 'distance_duration' || t?.type === 'duration' ? 'cardio' : null)
           || 'upper legs',
       }
