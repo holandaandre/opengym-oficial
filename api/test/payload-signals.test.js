@@ -82,3 +82,17 @@ test('a marked-painful exercise reaches the Coach on the entry it happened on', 
   assert.equal(entries[0].pain, true, 'the exercise that hurt must say so');
   assert.equal(entries[1].pain, undefined, 'and only that one');
 });
+
+test('one truncated night does not manufacture a downward trend', () => {
+  // A watch that loses half a night writes ~1h. Two of those in 28 days is what the real data
+  // looked like on 13/09/2026; a mean would have reported "sleeping an hour less than usual".
+  const linhas = noites('2026-09-13', 7.5, 7.5);
+  linhas[linhas.length - 4].sleepH = 1.2;
+  const r = recoverySummary({ recovery: linhas }, null);
+  assert.equal(r.sleepHours.delta, 0, 'the artefact must not move the trend');
+});
+
+test('a week that genuinely got worse still shows up', () => {
+  const r = recoverySummary({ recovery: noites('2026-09-13', 5.5, 7.5) }, null);
+  assert.equal(r.sleepHours.delta, -2, 'robust is not the same as blind');
+});

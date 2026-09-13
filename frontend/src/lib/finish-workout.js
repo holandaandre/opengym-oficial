@@ -14,6 +14,10 @@ export function buildCompletedWorkout(active, { end = Date.now(), prs = [], snap
       // shape it always was. Without this the whitelist drops both at finish.
       ...(entry.rid ? { rid: entry.rid } : {}),
       ...(entry.noProg === true ? { noProg: true } : {}),
+      // Marked during the session, on the exercise that hurt. This list is a whitelist, so a
+      // field missing from it is a field silently dropped at finish — which is what happened to
+      // pain the first time round.
+      ...(entry.pain === true ? { pain: true } : {}),
     }
     const snapshot = typeof snapshotFor === 'function' ? snapshotFor(entry) : null
     if (snapshot && typeof snapshot === 'object' && !Array.isArray(snapshot) && Object.keys(snapshot).length) {
@@ -28,7 +32,7 @@ export function buildCompletedWorkout(active, { end = Date.now(), prs = [], snap
       if (entry.notePin) completed.notePin = true
     }
     return completed
-  }).filter(entry => entry.sets.some(set => set.done))
+  }).filter(entry => entry.sets.some(set => set.done) || entry.pain === true)
 
   const sessionNote = (active?.note || '').trim()
   const routineIds = [].concat(active?.routineIds ?? (active?.routineId ? [active.routineId] : []))

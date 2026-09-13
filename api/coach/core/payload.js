@@ -353,9 +353,16 @@ export function recoverySummary(S, upTo) {
   const dayBefore = (d, n) => { const x = new Date(d + 'T12:00:00'); x.setDate(x.getDate() - n); return iso(x); };
   const recentFrom = dayBefore(end, 6), baseFrom = dayBefore(end, 27);
 
+  /* Median, not mean. A watch that loses the second half of a night writes 1.2 hours, and two
+     of those in 28 days here (13/09/2026) drag a 7-day mean down by nearly an hour — enough to
+     manufacture a "sleep is degrading" that never happened. The median ignores the artefact and
+     still moves when the week genuinely changes. */
   const media = (list, campo) => {
-    const v = list.map(r => r[campo]).filter(x => typeof x === 'number');
-    return v.length ? Math.round((v.reduce((a, b) => a + b, 0) / v.length) * 10) / 10 : null;
+    const v = list.map(r => r[campo]).filter(x => typeof x === 'number').sort((a, b) => a - b);
+    if (!v.length) return null;
+    const meio = Math.floor(v.length / 2);
+    const m = v.length % 2 ? v[meio] : (v[meio - 1] + v[meio]) / 2;
+    return Math.round(m * 10) / 10;
   };
   const recent = rows.filter(r => r.d >= recentFrom);
   const base = rows.filter(r => r.d >= baseFrom && r.d < recentFrom);
