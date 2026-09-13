@@ -11,6 +11,7 @@
  * and appearance settings, and every other profile's everything.
  */
 import { LIBRARY, LIB_BY_ID, libraryHas, libraryName, librarySlice, MAX_LIBRARY } from './library.js';
+import { fatigueOf } from '../../../frontend/src/lib/recovery.js';
 
 export const CONTRACT = 1;
 // Bounds from FR-22. A review reads a training block, not a training career: more history
@@ -276,6 +277,9 @@ function cleanWorkout(w) {
     entries: (w.entries || []).map(en => ({
       id: en.id,
       name: libraryName(en.id),
+      // Marked on the spot, during the set that hurt — the one signal the doctrine treats as
+      // overriding and the hardest to reconstruct from memory a week later.
+      ...(en.pain ? { pain: true } : {}),
       target: en.target ? { sets: en.target.sets, reps: en.target.reps, sec: en.target.sec, weight: en.target.weight } : null,
       sets: (en.sets || []).map(s => {
         const o = { done: !!s.done };
@@ -328,6 +332,71 @@ export function workoutMeta(S, workoutId) {
  * an HMAC on its instance secret (api/coach/handle.js), the phone draws a random one once and
  * keeps it. Either way it is 16 characters and never the uid.
  */
+/**
+ * Recovery signals for the Coach: sleep and resting heart rate, as a trend rather than a table.
+ *
+ * The doctrine this instance runs asks for a deload "sooner on sleep degrading or resting heart
+ * rate up" — advice the Coach could not follow, because nothing about recovery reached it. The
+ * numbers come from whatever the owner syncs into `S.recovery` (Apple Health / Withings, via the
+ * collector); an instance that syncs nothing has no `recovery` key in the payload at all and the
+ * Coach behaves exactly as before.
+ *
+ * Two windows, not a series: 7 days against the 21 before them is what turns "6h20 last night"
+ * into "sleeping 50 minutes less than usual", which is the shape a deload decision needs. Raw
+ * dailies would be 30 more rows for the model to average by itself.
+ */
+export function recoverySummary(S, upTo) {
+  const rows = (S.recovery || []).filter(r => r && r.d && (!upTo || r.d <= upTo));
+  if (rows.length < 7) return null;                    // too little to call anything a trend
+
+  const end = rows[rows.length - 1].d;
+  const dayBefore = (d, n) => { const x = new Date(d + 'T12:00:00'); x.setDate(x.getDate() - n); return iso(x); };
+  const recentFrom = dayBefore(end, 6), baseFrom = dayBefore(end, 27);
+
+  const media = (list, campo) => {
+    const v = list.map(r => r[campo]).filter(x => typeof x === 'number');
+    return v.length ? Math.round((v.reduce((a, b) => a + b, 0) / v.length) * 10) / 10 : null;
+  };
+  const recent = rows.filter(r => r.d >= recentFrom);
+  const base = rows.filter(r => r.d >= baseFrom && r.d < recentFrom);
+  if (!base.length) return null;
+
+  const bloco = (campo) => {
+    const a = media(recent, campo), b = media(base, campo);
+    if (a == null || b == null) return null;
+    return { last7: a, prior21: b, delta: Math.round((a - b) * 10) / 10 };
+  };
+  const sleep = bloco('sleepH'), restHR = bloco('restHR');
+  if (!sleep && !restHR) return null;
+  return { to: end, ...(sleep ? { sleepHours: sleep } : {}), ...(restHR ? { restingHR: restHR } : {}) };
+}
+
+/**
+ * Per-muscle fatigue, from the model the app already draws on the Stats screen.
+ *
+ * Not a second implementation: `fatigueOf` is the same function the charts call, with its own
+ * property probe in CI (`npm run test:fatigue-probe`). The Coach was planning volume without it —
+ * it could see that a muscle was trained on Tuesday, but not that it is still carrying the load
+ * on Friday.
+ *
+ * Only what is not obviously recovered travels: a muscle below the "recovering" line is noise in
+ * a payload, and thirty muscle rows would drown the four that matter.
+ */
+export function fatigueSummary(S, atMs) {
+  const workouts = S.workouts || [];
+  if (!workouts.length) return null;
+  const bodyweightKg = (S.bodyweight || []).at(-1)?.w ?? null;
+  let map;
+  try { map = fatigueOf(workouts, atMs || Date.now(), { bodyweightKg, unit: S.unit }); }
+  catch { return null; }                                  // never fail a job over a nicety
+  const carregando = Object.entries(map)
+    .filter(([, v]) => typeof v === 'number' && v > 0.25)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 8)
+    .map(([m, v]) => ({ muscle: m, load: Math.round(v * 100) / 100, state: v > 0.5 ? 'fatigued' : 'recovering' }));
+  return carregando.length ? { at: iso(new Date(atMs || Date.now())), muscles: carregando } : null;
+}
+
 export function build(S, opts = {}) {
   if (typeof opts.handle !== 'string' || !opts.handle) throw new Error('payload.build: opts.handle is required');
   const coach = S.coach || {};
@@ -381,6 +450,10 @@ export function build(S, opts = {}) {
       const since = new Date(w.d + 'T12:00:00'); since.setDate(since.getDate() - 28);
       const from = iso(since);
       p.bodyweight = { goal: S.targetW ?? null, series: (S.bodyweight || []).filter(b => b.d >= from && b.d <= w.d).map(b => ({ d: b.d, w: b.w })) };
+      const rec = recoverySummary(S, w.d);
+      if (rec) p.recovery = rec;
+      const fat = fatigueSummary(S, new Date(w.d + 'T20:00:00').getTime());
+      if (fat) p.fatigue = fat;
     } else {
       p.session = null;
       p.previous = [];
@@ -399,6 +472,10 @@ export function build(S, opts = {}) {
       goal: S.targetW ?? null,
       series: (S.bodyweight || []).filter(b => !p.window.from || b.d >= p.window.from).map(b => ({ d: b.d, w: b.w }))
     };
+    const recRev = recoverySummary(S, null);
+    if (recRev) p.recovery = recRev;
+    const fatRev = fatigueSummary(S, null);
+    if (fatRev) p.fatigue = fatRev;
     if (opts.note) p.userNote = String(opts.note).slice(0, 1000);
     if (opts.cohort) p.cohort = opts.cohort;
     // A review names mostly what is already trained; 60 candidates is plenty for a swap.

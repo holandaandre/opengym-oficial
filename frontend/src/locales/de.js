@@ -113,6 +113,7 @@ export default {
   'Add to routine': 'Zur Routine hinzufügen',
   'Remove exercise': 'Übung entfernen',
   'Swap exercise': 'Übung wechseln',
+  'This hurt': 'Das tat weh',
   'Stop': 'Stopp',
   'Stopped. Ask me again whenever you like.': 'Gestoppt. Frag mich einfach wieder.',
   'Warm-up set': 'Aufwärmsatz',

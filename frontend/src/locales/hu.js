@@ -736,6 +736,7 @@ export default {
   'Move up': 'Feljebb',
   'Move down': 'Lejjebb',
   'Swap exercise': 'Gyakorlat cseréje',
+  'This hurt': 'Ez fájt',
   'Stop': 'Leállítás',
   'Stopped. Ask me again whenever you like.': 'Leállítva. Kérdezz újra, amikor csak akarsz.',
   'Warm-up set': 'Bemelegítő sorozat',
