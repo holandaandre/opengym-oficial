@@ -54,6 +54,46 @@ test('one job per profile at a time', async () => {
   await settle(uid);
 });
 
+/* Two improvements born from the 13/09/2026 incident: nobody was told the spend had run away,
+   and a proposal that replaced another one took it to the grave. */
+test('a day that stops looking ordinary raises exactly one warning', async () => {
+  const uid = 'u-spend';
+  writeState(DIR, uid, sampleState());
+  cfg.save({ caps: { perProfileDaily: 5, instanceDaily: 0 } });
+  const avisos = [];
+  jobs.setSpendHook((who, info) => avisos.push({ who, ...info }));
+
+  for (let i = 0; i < 5; i++) {
+    try { jobs.enqueue(uid, { kind: 'review' }); } catch { /* cap or busy: both fine here */ }
+    await settle(uid);
+  }
+  jobs.setSpendHook(null);
+
+  assert.ok(avisos.length >= 1, 'the owner has to hear about it');
+  assert.equal(avisos.length, 1, 'once a day, not once a job');
+  assert.ok(avisos[0].used >= 4, 'fires at 80% of the cap, not after it is too late');
+});
+
+test('a proposal that replaces another leaves it in the log rather than deleting it', async () => {
+  const uid = 'u-superseded';
+  writeState(DIR, uid, sampleState());
+  cfg.save({ caps: { perProfileDaily: 0, instanceDaily: 0 } });
+
+  jobs.enqueue(uid, { kind: 'review' });
+  await settle(uid);
+  const primeira = jobs.status(uid).pending;
+  assert.ok(primeira?.id, 'precondition: a proposal is pending');
+
+  jobs.enqueue(uid, { kind: 'review' });
+  await settle(uid);
+  const segunda = jobs.status(uid).pending;
+  assert.notEqual(segunda.id, primeira.id, 'precondition: it was replaced');
+
+  const hist = jobs.readUser(uid).history || [];
+  assert.ok(hist.some(h => h.id === primeira.id && h.outcome === 'superseded'),
+    'the replaced card must survive in the history');
+});
+
 /* The loop this prevents: the cadence asks "anything new since the last review?", the stamp that
    answers it used to be written only by the app when someone acted on the card, and a card left
    sitting meant every workout ever logged counted as new — one queued review per tick, 184 runs

@@ -231,6 +231,7 @@ export function enqueue(uid, opts) {
   // of the owner's provider account, and queueing twenty jobs spends it whether or not the
   // twentieth ever finishes.
   bumpDaily(uid);
+  checkSpend(uid);
 
   const job = {
     id: crypto.randomBytes(8).toString('hex'),
@@ -278,11 +279,21 @@ function finish(job, result) {
     // the admin card renders, and which carries counts and outcomes only (FR-12/42).
     ...(result.reading ? { reading: String(result.reading).slice(0, 1200) } : {})
   }].slice(-HISTORY_MAX);
+  /* A new proposal replaces the one sitting there. It used to vanish on the spot: a workout
+     debrief read at 18:16 was gone by 18:27, when the scheduled review landed, and the only
+     person who ever saw it was the one reading the API. The card is already paid for — it goes
+     to the log the "Plans, suggestions and debriefs, kept" screen reads. */
+  const replacing = result.pending !== undefined && result.pending !== null && rec.pending
+    && rec.pending.id !== result.pending.id;
+  const withReplaced = replacing
+    ? [...history, { id: rec.pending.id, kind: rec.pending.kind, outcome: 'superseded', at: Date.now() }].slice(-HISTORY_MAX)
+    : history;
+
   writeUser(job.uid, {
     ...rec,
     current: null,
     pending: result.pending !== undefined ? result.pending : rec.pending,
-    history
+    history: withReplaced
   });
   // A review that ran is a review, whatever the user later does with the card. Stamping on any
   // conclusive outcome — proposal, "nothing to change", even a provider failure — is what keeps
@@ -304,6 +315,30 @@ function finish(job, result) {
 // importing the web-push plumbing (and dragging it into every test that touches the queue).
 let onProposal = null;
 export function setProposalHook(fn) { onProposal = fn; }
+
+/* Spend that runs away is only ever noticed by accident. On 13/09/2026 a cadence loop ran 184
+   jobs in twelve hours here and nothing said a word — the owner found it while looking at
+   something else. This fires once per day, at the point where the day stops looking ordinary. */
+let onSpend = null;
+export function setSpendHook(fn) { onSpend = fn; }
+const warned = new Map();   // uid → the day already warned about
+
+function checkSpend(uid) {
+  if (!onSpend) return;
+  const caps = cfgStore.load().caps || {};
+  const day = todayISO();
+  const perProfile = capState(uid).used;
+  const instance = instanceUsedToday();
+  // A cap of 0 means "no limit", and a day with no limit still deserves a floor to shout from:
+  // 40 runs is far past any honest day of asking (26 was the busiest real one before the loop).
+  const limit = caps.instanceDaily > 0 ? caps.instanceDaily : (caps.perProfileDaily > 0 ? caps.perProfileDaily : 40);
+  const used = caps.instanceDaily > 0 ? instance : perProfile;
+  if (used < Math.ceil(limit * 0.8)) return;
+  if (warned.get(uid) === day) return;
+  warned.set(uid, day);
+  try { onSpend(uid, { used, limit, capped: used >= limit }); }
+  catch (e) { console.error('coach spend notify failed', e); }
+}
 
 /* ---------- execution ---------- */
 

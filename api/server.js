@@ -1001,6 +1001,17 @@ coachJobs.setProposalHook((uid, pending) => {
     tag: 'coach-proposal', url: '#/coach'
   });
 });
+// The other Coach event worth interrupting someone for: a day that stopped looking ordinary.
+// Silence here is how 184 runs went unnoticed for twelve hours (13/09/2026).
+coachJobs.setSpendHook((uid, { used, limit, capped }) => {
+  sendPush(uid, {
+    title: capped ? 'Coach paused for today' : 'Coach is running a lot today',
+    body: capped
+      ? `${used} runs today — the daily limit. It resumes tomorrow.`
+      : `${used} runs today, out of ${limit}.`,
+    tag: 'coach-spend', url: '#/coach'
+  });
+});
 startCadence({ users: () => db.users, userNow });
 startWarmup();
 
