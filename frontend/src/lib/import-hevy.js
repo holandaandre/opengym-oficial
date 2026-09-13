@@ -175,7 +175,10 @@ function makeResolver(templates) {
         // Where it came from. Without it the only handle on an invented exercise is its name,
         // and a rename — into the user's own language, say — makes the next import create a
         // second copy of the same movement. Same lesson as the Hevy translation split.
-        id: 'im' + uid(), hevyId: templateId || null, n: name, custom: true, eq: 'custom', tg: '', desc: '',
+        id: 'im' + uid(), n: name, custom: true, eq: 'custom', tg: '', desc: '',
+        // Written only when there is one — the same rule the rest of the state follows, so a
+        // CSV import (which has titles and no ids) produces byte-for-byte what it always did.
+        ...(templateId ? { hevyId: templateId } : {}),
         bp: bpOfTemplate(t) || (t?.type === 'distance_duration' || t?.type === 'duration' ? 'cardio' : null)
           || 'upper legs',
       }
