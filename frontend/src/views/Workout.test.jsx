@@ -1290,6 +1290,32 @@ describe('workout controls: the more menu and the set menu', () => {
   /* Leaving a superset from the exercise you are looking at. The card header has an "Unpair", but
      it releases the first exercise of the group — in a superset of three that is never the one
      you meant. */
+  /* Reported as "the unpair button was not working" (14/09). Clicking the header button on a
+     paired card must actually release the pair, in both workout views. */
+  it('the Unpair button in the superset header releases the pair', async () => {
+    await mount([
+      exercise('plain-bench', [false], { sg: 'a' }),
+      exercise('plain-row', [false], { sg: 'a' }),
+    ])
+    const botao = [...container.querySelectorAll('button')].find(b => b.textContent.trim() === 'Unpair')
+    expect(botao, 'the button has to be on screen to begin with').toBeTruthy()
+    await act(async () => { botao.dispatchEvent(new dom.Event('click', { bubbles: true })) })
+    expect(mocks.S.active.entries.map(e => e.sg)).toEqual([undefined, undefined])
+  })
+
+  it('the Unpair button works in list view too, on the group it belongs to', async () => {
+    await mount([
+      exercise('plain-curl', [false]),
+      exercise('plain-bench', [false], { sg: 'a' }),
+      exercise('plain-row', [false], { sg: 'a' }),
+    ], 0, { workoutView: 'list' })
+    const botao = [...container.querySelectorAll('button')].find(b => b.textContent.trim() === 'Unpair')
+    expect(botao).toBeTruthy()
+    await act(async () => { botao.dispatchEvent(new dom.Event('click', { bubbles: true })) })
+    // The standalone exercise is untouched; the pair below it is released.
+    expect(mocks.S.active.entries.map(e => e.sg)).toEqual([undefined, undefined, undefined])
+  })
+
   /* The sheet is opened between two sets, with a bar in front of you: what you came for must not
      be the eighth row. This fixes the order so a future addition has to think about where it
      belongs rather than landing on top of the list. */
