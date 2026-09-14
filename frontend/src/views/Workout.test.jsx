@@ -1290,6 +1290,20 @@ describe('workout controls: the more menu and the set menu', () => {
   /* Leaving a superset from the exercise you are looking at. The card header has an "Unpair", but
      it releases the first exercise of the group — in a superset of three that is never the one
      you meant. */
+  /* The sheet is opened between two sets, with a bar in front of you: what you came for must not
+     be the eighth row. This fixes the order so a future addition has to think about where it
+     belongs rather than landing on top of the list. */
+  it('puts the actions you reach for mid-set above the reference material', async () => {
+    await mount([exercise('plain-bench', [false]), exercise('plain-row', [false])])
+    await act(async () => { container.querySelector('button[aria-label="More"]').dispatchEvent(new dom.Event('click', { bubbles: true })) })
+    const labels = lastMenu().items.filter(Boolean).map(i => i.label)
+
+    expect(labels[0]).toBe('Swap exercise')
+    expect(labels.indexOf('This hurt')).toBeLessThan(labels.indexOf('Details'))
+    expect(labels.indexOf('Add warm-up set')).toBeLessThan(labels.indexOf('History'))
+    expect(labels.at(-1)).toBe('Remove exercise')
+  })
+
   it('takes the exercise at the end out, and the ones still adjacent stay paired', async () => {
     await mount([
       exercise('plain-bench', [false], { sg: 'a' }),

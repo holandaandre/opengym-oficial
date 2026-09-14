@@ -206,26 +206,34 @@ function ExerciseBlock({ entryIdx, compact, dense, onToggle, onToggleSide, onFie
   })() : null
   const openMore = () => menuSheet({
     title: exerciseNameFor(ex),
+    /* Ordered by what someone reaches for mid-set, not by what was added to the app first.
+       Actions on the session come before information about the exercise: you open this sheet
+       between two sets, with a bar in front of you, and the thing you came for should not be
+       the eighth row. Removing comes last, alone, because it is the only one that loses work. */
     items: [
-      { icon: 'pencil', label: entry.note ? t('Edit note') : t('Add note'), sub: entry.note || undefined, onClick: () => exerciseNoteSheet(entryIdx) },
-      { icon: 'info', label: t('Details'), onClick: () => exerciseDetailSheet(ex) },
-      { icon: 'history', label: t('History'), sub: last ? t('Last time') + ' ' + fmtDate(last.d) : undefined, onClick: () => exerciseHistorySheet(entry.id) },
-      onProgressionSettings && { icon: 'chartLine', label: t('Progression settings'), sub: guidance ? t(guidance.policyLabel) : undefined, onClick: onProgressionSettings },
-      barInfo && { icon: 'barbell', label: t('Bar weight'), sub: barInfo.text, onClick: () => barWeightSheet(entry.id) },
+      onSwap && { icon: 'shuffle', label: t('Swap exercise'), onClick: onSwap, disabled: busy },
       { icon: 'flame', label: t('Add warm-up set'), onClick: onAddWarmup },
       /* Pain, marked while it is happening. A week later nobody remembers which exercise it was,
          and the Coach is told to treat pain as overriding — it just never had a way to hear
          about it. A toggle, not a scale: grading pain invites programming around it. */
       { icon: 'warning', label: t('This hurt'), on: !!entry.pain,
         onClick: () => onEntryField('pain', !entry.pain) },
+      /* Pairing and unpairing are the same slot: an exercise already in a group is never offered
+         a second one, so only one of the three ever shows. The card header also has an "Unpair",
+         but it releases the first exercise of the group — in a superset of three that is never
+         the one you are looking at. */
       onPairPrev && { icon: 'link', label: t('Make superset with previous'), onClick: onPairPrev },
       onPairNext && { icon: 'link', label: t('Make superset with next'), onClick: onPairNext },
-      /* The card header already has "Unpair", but it breaks the whole group — and in a superset
-         of three, it always releases the first exercise, never the one you are looking at. */
       onUnpair && { icon: 'link', label: t('Remove from superset'), onClick: onUnpair },
-      onSwap && { icon: 'shuffle', label: t('Swap exercise'), onClick: onSwap, disabled: busy },
       onMoveUp && { icon: 'chevronUp', label: t('Move up'), onClick: onMoveUp, disabled: busy || !canMoveUp },
       onMoveDown && { icon: 'chevronDown', label: t('Move down'), onClick: onMoveDown, disabled: busy || !canMoveDown },
+      { icon: 'pencil', label: entry.note ? t('Edit note') : t('Add note'), sub: entry.note || undefined, onClick: () => exerciseNoteSheet(entryIdx) },
+      onProgressionSettings && { icon: 'chartLine', label: t('Progression settings'), sub: guidance ? t(guidance.policyLabel) : undefined, onClick: onProgressionSettings },
+      // The bar weight has its own tappable chip on the card now; this stays for the case where
+      // the chip is off screen, and keeps the sheet complete.
+      barInfo && { icon: 'barbell', label: t('Bar weight'), sub: barInfo.text, onClick: () => barWeightSheet(entry.id) },
+      { icon: 'history', label: t('History'), sub: last ? t('Last time') + ' ' + fmtDate(last.d) : undefined, onClick: () => exerciseHistorySheet(entry.id) },
+      { icon: 'info', label: t('Details'), onClick: () => exerciseDetailSheet(ex) },
       onRemoveExercise && { icon: 'trash', label: t('Remove exercise'), onClick: onRemoveExercise, danger: true, disabled: busy },
     ],
   })
