@@ -108,6 +108,7 @@ export default {
   'Add to routine': '루틴에 추가',
   'Remove exercise': '운동 제거',
   'Swap exercise': '운동 바꾸기',
+  'Remove from superset': '슈퍼세트에서 제거',
   'This hurt': '여기가 아팠어요',
   'Stop': '중지',
   'Stopped. Ask me again whenever you like.': '중지했어요. 언제든 다시 물어보세요.',

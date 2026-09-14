@@ -108,6 +108,7 @@ export default {
   'Add to routine': '加入训练日',
   'Remove exercise': '移除动作',
   'Swap exercise': '更换动作',
+  'Remove from superset': '从超级组中移除',
   'This hurt': '这个动作疼',
   'Stop': '停止',
   'Stopped. Ask me again whenever you like.': '已停止。随时可以再问我。',

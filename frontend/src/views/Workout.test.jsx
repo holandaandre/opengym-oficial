@@ -1287,6 +1287,54 @@ describe('workout controls: the more menu and the set menu', () => {
     expect(mocks.S.active.entries[0].sets[0].rir ?? null).toBe(null)
   })
 
+  /* Leaving a superset from the exercise you are looking at. The card header has an "Unpair", but
+     it releases the first exercise of the group — in a superset of three that is never the one
+     you meant. */
+  it('takes the exercise at the end out, and the ones still adjacent stay paired', async () => {
+    await mount([
+      exercise('plain-bench', [false], { sg: 'a' }),
+      exercise('plain-row', [false], { sg: 'a' }),
+      exercise('plain-curl', [false], { sg: 'a' }),
+    ])
+    await act(async () => { container.querySelectorAll('button[aria-label="More"]')[2].dispatchEvent(new dom.Event('click', { bubbles: true })) })
+    await act(async () => { item('Remove from superset').onClick() })
+
+    const sgs = mocks.S.active.entries.map(e => e.sg)
+    expect(sgs[2]).toBeUndefined()
+    expect(sgs[0]).toBe('a')
+    expect(sgs[1]).toBe('a')
+  })
+
+  /* A superset is a run of *adjacent* exercises, so pulling one out of the middle leaves the two
+     halves no longer next to each other and the group dissolves. Deliberate, and the reason the
+     test above releases the end instead. */
+  it('releasing the middle one dissolves the group, because adjacency is what a superset is', async () => {
+    await mount([
+      exercise('plain-bench', [false], { sg: 'a' }),
+      exercise('plain-row', [false], { sg: 'a' }),
+      exercise('plain-curl', [false], { sg: 'a' }),
+    ])
+    await act(async () => { container.querySelectorAll('button[aria-label="More"]')[1].dispatchEvent(new dom.Event('click', { bubbles: true })) })
+    await act(async () => { item('Remove from superset').onClick() })
+    expect(mocks.S.active.entries.map(e => e.sg)).toEqual([undefined, undefined, undefined])
+  })
+
+  it('a pair unpairs completely when either side is released', async () => {
+    await mount([
+      exercise('plain-bench', [false], { sg: 'a' }),
+      exercise('plain-row', [false], { sg: 'a' }),
+    ])
+    await act(async () => { container.querySelectorAll('button[aria-label="More"]')[0].dispatchEvent(new dom.Event('click', { bubbles: true })) })
+    await act(async () => { item('Remove from superset').onClick() })
+    expect(mocks.S.active.entries.map(e => e.sg)).toEqual([undefined, undefined])
+  })
+
+  it('offers no unpair on an exercise that is not in a superset', async () => {
+    await mount([exercise('plain-bench', [false])])
+    await act(async () => { container.querySelector('button[aria-label="More"]').dispatchEvent(new dom.Event('click', { bubbles: true })) })
+    expect(lastMenu().items.filter(Boolean).map(i => i.label)).not.toContain('Remove from superset')
+  })
+
   it('brings the legacy button rows back per switch', async () => {
     await mount([exercise('plain-bench', [false]), exercise('plain-row', [false])], 0, {
       wc: { setShortcuts: true, pairButtons: true, exerciseButtons: true },

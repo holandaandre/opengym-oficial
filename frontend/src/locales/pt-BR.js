@@ -36,6 +36,7 @@ export const PT_BR_OVERRIDES = {
   'No favourites here — tap the star on an exercise to add it.': 'Sem favoritos aqui — toque na estrela de um exercício para adicioná-lo.',
   'The sets you logged for this exercise in this session will be lost.': 'As séries registradas para este exercício nesta sessão serão perdidas.',
   'Swap exercise': 'Trocar exercício',
+  'Remove from superset': 'Remover do superset',
   'This hurt': 'Doeu aqui',
   'Stop': 'Parar',
   'Stopped. Ask me again whenever you like.': 'Parado. Pode me perguntar de novo quando quiser.',

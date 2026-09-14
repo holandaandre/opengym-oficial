@@ -72,7 +72,7 @@ function Elapsed({ start }) {
 // drops everything that is not a set you are logging — media, tag chips, the note lines, the
 // "last time" recap and the progression line — leaving the name, the ⋯ menu and the sets.
 // Nothing dropped is lost: it is all still on the ⋯ menu, or one ⋮ switch back to list/cards.
-function ExerciseBlock({ entryIdx, compact, dense, onToggle, onToggleSide, onField, onEntryField, onAddSet, onRemoveSet, onAddWarmup, onRemoveSetAt, onStartTimed, onPairPrev, onPairNext, onSetRowRef, onProgressionSettings, onSwap, onMoveUp, onMoveDown, canMoveUp, canMoveDown, onRemoveExercise, busy }) {
+function ExerciseBlock({ entryIdx, compact, dense, onToggle, onToggleSide, onField, onEntryField, onUnpair, onAddSet, onRemoveSet, onAddWarmup, onRemoveSetAt, onStartTimed, onPairPrev, onPairNext, onSetRowRef, onProgressionSettings, onSwap, onMoveUp, onMoveDown, canMoveUp, canMoveDown, onRemoveExercise, busy }) {
   const S = useStore(s => s.S)
   const update = useStore(s => s.update)
   const working = useUI(s => s.work)
@@ -220,6 +220,9 @@ function ExerciseBlock({ entryIdx, compact, dense, onToggle, onToggleSide, onFie
         onClick: () => onEntryField('pain', !entry.pain) },
       onPairPrev && { icon: 'link', label: t('Make superset with previous'), onClick: onPairPrev },
       onPairNext && { icon: 'link', label: t('Make superset with next'), onClick: onPairNext },
+      /* The card header already has "Unpair", but it breaks the whole group — and in a superset
+         of three, it always releases the first exercise, never the one you are looking at. */
+      onUnpair && { icon: 'link', label: t('Remove from superset'), onClick: onUnpair },
       onSwap && { icon: 'shuffle', label: t('Swap exercise'), onClick: onSwap, disabled: busy },
       onMoveUp && { icon: 'chevronUp', label: t('Move up'), onClick: onMoveUp, disabled: busy || !canMoveUp },
       onMoveDown && { icon: 'chevronDown', label: t('Move down'), onClick: onMoveDown, disabled: busy || !canMoveDown },
@@ -413,9 +416,10 @@ function ExerciseBlock({ entryIdx, compact, dense, onToggle, onToggleSide, onFie
         (first undone set; the heaviest row once everything is checked). The logged number
         stays the total — this chip is the split, and tapping it edits the bar's own weight
         (S.barWeights, per exercise) mid-workout. Weight ≤ bar leaves just the bar. */}
-    {barInfo && <div className="small dim" style={{ marginBottom: 6, display: 'flex', alignItems: 'center', gap: 5 }}>
-      <Icon name="dumbbell" style={{ fontSize: 12 }} />{barInfo.text}
-    </div>}
+    {barInfo && <button type="button" className="barchip" onClick={() => barWeightSheet(entry.id)}
+      aria-label={t('Bar weight')} title={t('Bar weight')}>
+      <Icon name="barbell" />{barInfo.text}
+    </button>}
     {guidance && <button type="button" className={'progline' + (plan.kind === 'deload' ? ' warn' : '')}
       aria-label={t('Open progression settings')} onClick={onProgressionSettings}>
       <Icon name={plan.kind === 'up' ? 'arrowUp' : plan.kind === 'deload' ? 'arrowDown' : 'lightbulb'} />
@@ -670,6 +674,8 @@ function ActiveWorkout() {
   // a superset member acts on that member, not on whatever the marker happens to point at.
   const blockProps = idx => ({
     onSwap: () => swapActiveWorkoutExercise(idx),
+    // Only offered when this exercise is actually in a group.
+    onUnpair: A.entries[idx]?.sg ? () => unpairAt(idx) : null,
     onEntryField: (campo, valor) => update(s => {
       const en = s.active?.entries?.[idx]; if (!en) return
       if (valor) en[campo] = valor; else delete en[campo]

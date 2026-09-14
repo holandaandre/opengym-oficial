@@ -108,6 +108,7 @@ export default {
   'Add to routine': 'Добавить в программу',
   'Remove exercise': 'Убрать упражнение',
   'Swap exercise': 'Заменить упражнение',
+  'Remove from superset': 'Убрать из суперсета',
   'This hurt': 'Здесь болело',
   'Stop': 'Остановить',
   'Stopped. Ask me again whenever you like.': 'Остановлено. Спросите снова, когда захотите.',

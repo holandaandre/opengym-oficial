@@ -108,6 +108,7 @@ export default {
   'Add to routine': 'Adicionar à rotina',
   'Remove exercise': 'Remover exercício',
   'Swap exercise': 'Trocar exercício',
+  'Remove from superset': 'Remover do superset',
   'This hurt': 'Doeu aqui',
   'Stop': 'Parar',
   'Stopped. Ask me again whenever you like.': 'Parado. Pergunta-me de novo quando quiseres.',

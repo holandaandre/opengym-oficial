@@ -668,6 +668,17 @@ h4.sec{
   position:relative;padding:0;border:0;font-family:inherit;cursor:pointer;
   transition:background var(--fast),color var(--fast);
 }
+/* The bar weight, while you are loading the bar. It used to be grey static text: the number you
+   need at the rack, in the size you read from two metres away, and tappable because the moment
+   you notice the bar is not 20 kg is the moment you are standing in front of it. */
+.setrow-bar, .barchip{
+  display:inline-flex;align-items:center;gap:6px;margin-bottom:8px;padding:5px 10px;
+  border:1px solid var(--sep);border-radius:999px;background:var(--surface-2);
+  color:var(--label);font:inherit;font-size:13px;font-weight:600;cursor:pointer;
+}
+.barchip .ico{font-size:13px;opacity:.75}
+.barchip:active{background:var(--surface-3, var(--surface-2));transform:scale(.98)}
+
 /* The set number carries its own type: amber for a warm-up, red for a set taken to failure.
    Same weight and size as the plain number, so a column of sets still scans as one column. */
 .setrow .n.n-warm{color:var(--orange);background:color-mix(in srgb, var(--orange) 16%, var(--surface-2));font-weight:700}
