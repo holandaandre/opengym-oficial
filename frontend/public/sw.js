@@ -1,6 +1,6 @@
 /* openGym service worker — runtime caching (works with Vite's hashed asset names).
    Media (img/gif) cache-first; everything else network-first with offline fallback. */
-const CACHE = 'opengym-rt-v1'
+const CACHE = 'opengym-rt-v2'
 
 self.addEventListener('install', () => self.skipWaiting())
 self.addEventListener('activate', e => {
@@ -38,8 +38,12 @@ self.addEventListener('fetch', e => {
     )))
   } else {
     e.respondWith(fetch(e.request).then(res => {
-      if (res.ok) caches.open(CACHE).then(c => c.put(e.request, res.clone()))
+      // Clone synchronously. Waiting for caches.open() to resolve first hands the body to the
+      // page in the meantime, and the late clone() throws "body already used" — an unhandled
+      // rejection that silently cached nothing, so the shell was never available offline.
+      if (res.ok) { const copy = res.clone(); caches.open(CACHE).then(c => c.put(e.request, copy)) }
       return res
-    }).catch(() => caches.match(e.request).then(hit => hit || caches.match('index.html'))))
+      // The navigation request is cached under './', not 'index.html' — match what was stored.
+    }).catch(() => caches.match(e.request).then(hit => hit || caches.match('./'))))
   }
 })
