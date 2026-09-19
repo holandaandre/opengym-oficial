@@ -51,10 +51,35 @@ export const exerciseNameFor = ex => {
     : `${translated} (${ex.n})`
 }
 
+// Brazilian gym slang the curated catalogue names never use. Each rule appends its synonyms
+// to an exercise's SEARCH text only — the displayed name never changes. Measured against the
+// 1,324-exercise catalogue: every left-hand term returned zero or misleading results before
+// this (e.g. "peso morto" matched only "inseto morto", the dead bug).
+// ponytail: a flat list beats a synonym engine; add a row when a search comes up empty.
+const PT_BR_SEARCH_ALIASES = [
+  [/\bcabos?\b/iu, 'polia polias'],
+  [/levantamento terra/iu, 'peso morto'],
+  [/abdução de quadril/iu, 'cadeira abdutora'],
+  [/adução de quadril/iu, 'cadeira adutora'],
+  [/crucifixo[^,]*m[áa]quina/iu, 'voador peck deck'],
+  [/puxada/iu, 'puxador'],
+  [/(?:barra fixa|puxada)[^,]*assistid/iu, 'graviton'],
+  [/agachamento[^,]*barra/iu, 'agachamento livre'],
+  [/supino[^,]*barra/iu, 'supino reto'],
+  [/panturrilha/iu, 'gêmeos'],
+  [/remada curvada unilateral com halter/iu, 'serrote'],
+]
+
 // Search both the localized and canonical English title without changing persisted data.
+// In pt-BR the searchable text also carries the slang above, so "peso morto" and
+// "levantamento terra" reach the same exercise.
 export const exerciseNameSearchText = ex => {
   const translated = exerciseNames && ex && exerciseNames[ex.id]
-  return translated ? `${translated} ${ex.n}` : (ex?.n || '')
+  if (!translated) return ex?.n || ''
+  const base = `${translated} ${ex.n}`
+  if (lang !== 'pt-BR') return base
+  const extra = PT_BR_SEARCH_ALIASES.filter(([re]) => re.test(base)).map(([, slang]) => slang)
+  return extra.length ? `${base} ${extra.join(' ')}` : base
 }
 
 // Called by i18n.js's setLang once the locale pack has been loaded — kept here rather than
